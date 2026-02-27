@@ -3,32 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plánovač dovolených</title>
+    <title>Plánovač - DEBUG VERZE</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        button { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
-        button:hover { background: #2563eb; }
-        input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        .btn-approve { background: #22c55e; width: auto; margin-right: 5px; }
-        .btn-reject { background: #ef4444; width: auto; }
-        .debug-bar { background: #fffbeb; border: 2px solid #fbbf24; color: #92400e; padding: 15px; margin-bottom: 20px; border-radius: 8px; font-family: monospace; }
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .card { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+        .debug-box { background: #fff3cd; border: 4px solid #ffc107; color: #856404; padding: 20px; margin-bottom: 30px; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // ❗❗ ZDE DOPLŇ SVÉ ÚDAJE ❗❗
+        // -----------------------------------------------------------
+        // 1. ZDE NASTAV SVOJE ÚDAJE (BEZ TOHO TO NEPUJDE)
+        // -----------------------------------------------------------
         const SUPABASE_URL = 'https://bprawiumolizfnhuigpf.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_OCC-K3xibSWzFoLgcQ7kyg_39EH34zQ';
-        
-        // ❗❗ TADY MUSÍ BÝT TVŮJ EMAIL PŘESNĚ NA ZNAK ❗❗
         const ADMIN_EMAIL = 'marek.horacek@alza.cz'; 
+        // -----------------------------------------------------------
 
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -52,9 +51,9 @@
             }, []);
 
             const checkUser = (s) => {
-                // Tady probíhá kontrola:
-                const jeToAdmin = s.user.email.trim().toLowerCase() === ADMIN_EMAIL.trim().toLowerCase();
-                setIsAdmin(jeToAdmin);
+                const userEmail = s.user.email.toLowerCase().trim();
+                const adminEmail = ADMIN_EMAIL.toLowerCase().trim();
+                setIsAdmin(userEmail === adminEmail);
                 fetchRequests();
             };
 
@@ -63,106 +62,88 @@
                 setRequests(data || []);
             };
 
-            const handleStatus = async (id, status) => {
-                if (confirm('Opravdu chcete změnit stav?')) {
-                    await supabase.from('leave_requests').update({ status }).eq('id', id);
-                    fetchRequests();
-                }
-            };
-
             const handleLogin = async (e) => {
                 e.preventDefault();
                 const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
-                if (error) {
-                    const { error: signUpError } = await supabase.auth.signUp({ email: form.email, password: form.pass });
-                    if (signUpError) alert("Chyba: " + signUpError.message);
-                    else alert("Účet vytvořen! Zkontroluj email nebo se zkus přihlásit znovu.");
-                }
+                if (error) await supabase.auth.signUp({ email: form.email, password: form.pass });
+            };
+
+            const handleStatus = async (id, status) => {
+                await supabase.from('leave_requests').update({ status }).eq('id', id);
+                fetchRequests();
             };
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 const { data: { user } } = await supabase.auth.getUser();
-                // Uložení jména (pokud neexistuje)
                 await supabase.from('profiles').upsert({ id: user.id, full_name: user.email.split('@')[0] });
-                // Uložení žádosti
-                const { error } = await supabase.from('leave_requests').insert([{ user_id: user.id, date_from: form.from, date_to: form.to }]);
-                
-                if(error) alert('Chyba: ' + error.message);
-                else { alert('Odesláno ke schválení!'); fetchRequests(); }
+                await supabase.from('leave_requests').insert([{ user_id: user.id, date_from: form.from, date_to: form.to }]);
+                fetchRequests();
+                alert("Odesláno!");
             };
 
-            if (!session) return (
-                <div style={{display:'flex', justifyContent:'center', height:'100vh', alignItems:'center'}}>
-                    <form className="card" onSubmit={handleLogin} style={{width:300, textAlign:'center'}}>
-                        <h2>🔐 Přihlášení</h2>
-                        <input type="email" placeholder="Email" onChange={e => setForm({...form, email:e.target.value})} required style={{marginBottom:10}} />
-                        <input type="password" placeholder="Heslo" onChange={e => setForm({...form, pass:e.target.value})} required style={{marginBottom:15}} />
-                        <button>Vstoupit</button>
-                    </form>
-                </div>
-            );
-
-            const pending = requests.filter(r => r.status === 'pending');
-
+            // TOTO JE TO HLAVNÍ - VŽDY VIDITELNÝ PANEL
             return (
                 <div>
-                    {/* 🕵️ DETEKTIVNÍ LIŠTA - ukáže ti pravdu */}
-                    <div className="debug-bar">
-                        <strong>🕵️ DETEKTIVNÍ INFO:</strong><br/>
-                        Přihlášený email (Supabase): <b>"{session.user.email}"</b><br/>
-                        Email v kódu (ADMIN_EMAIL): <b>"{ADMIN_EMAIL}"</b><br/>
-                        <hr style={{borderColor:'#fbbf24'}}/>
-                        Shodují se? 👉 <b>{isAdmin ? "✅ ANO (Jsi Admin)" : "❌ NE (Jsi Zaměstnanec)"}</b>
+                    <div className="debug-box">
+                        <h2 style={{marginTop:0}}>🕵️ DETEKTIVNÍ PANEL (Verze 6.0)</h2>
+                        <p><strong>Tvůj stav:</strong> {session ? '🟢 Přihlášen' : '🔴 Odhlášen'}</p>
+                        <p><strong>Tvůj email:</strong> {session ? session.user.email : '---'}</p>
+                        <p><strong>Admin email v kódu:</strong> {ADMIN_EMAIL}</p>
+                        <hr style={{borderColor:'#ffeeba'}}/>
+                        <p style={{fontSize:'1.2em'}}>
+                            <strong>JSI ADMIN? 👉 </strong> 
+                            {isAdmin ? <span style={{color:'green', fontWeight:'bold'}}>ANO ✅</span> : <span style={{color:'red', fontWeight:'bold'}}>NE ❌</span>}
+                        </p>
+                        {!isAdmin && session && <p><em>(Protože se tvůj email neshoduje s tím v kódu)</em></p>}
                     </div>
 
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20}}>
-                        <h3>🌴 Plánovač {isAdmin && <span style={{color:'red'}}>(ADMIN)</span>}</h3>
-                        <button onClick={() => supabase.auth.signOut()} style={{width:'auto', background:'#666'}}>Odhlásit</button>
-                    </div>
-
-                    {isAdmin ? (
-                        // POHLED PRO ADMINA
-                        <div className="card" style={{borderLeft:'5px solid #22c55e'}}>
-                            <h2 style={{marginTop:0}}>👑 Správa dovolených</h2>
-                            {pending.length === 0 ? <p>Žádné nové žádosti ke schválení. 👍</p> : 
-                                pending.map(r => (
-                                    <div key={r.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #eee', padding:'10px 0'}}>
-                                        <div>
-                                            <strong>{r.profiles?.full_name || r.user_id}</strong><br/>
-                                            {r.date_from} — {r.date_to}
-                                        </div>
-                                        <div>
-                                            <button className="btn-approve" onClick={()=>handleStatus(r.id, 'approved')}>Schválit</button>
-                                            <button className="btn-reject" onClick={()=>handleStatus(r.id, 'rejected')}>Zamítnout</button>
-                                        </div>
-                                    </div>
-                                ))
-                            }
-                            <h4 style={{marginTop:20, color:'#888'}}>Historie všech žádostí:</h4>
-                            <ul style={{color:'#666'}}>
-                                {requests.filter(r => r.status !== 'pending').map(r => (
-                                    <li key={r.id}>{r.date_from} - {r.status === 'approved' ? '✅' : '❌'} ({r.profiles?.full_name})</li>
-                                ))}
-                            </ul>
+                    {!session ? (
+                        <div className="card" style={{maxWidth: 300, margin: '0 auto', textAlign: 'center'}}>
+                            <h2>🔐 Přihlášení</h2>
+                            <form onSubmit={handleLogin}>
+                                <input type="email" placeholder="Email" onChange={e => setForm({...form, email:e.target.value})} />
+                                <input type="password" placeholder="Heslo" onChange={e => setForm({...form, pass:e.target.value})} />
+                                <button>Vstoupit / Registrovat</button>
+                            </form>
                         </div>
                     ) : (
-                        // POHLED PRO ZAMĚSTNANCE
-                        <div className="card">
-                            <h3>➕ Nová žádost</h3>
-                            <form onSubmit={handleSubmit} style={{display:'flex', gap:10, flexDirection:'column'}}>
-                                <label>Od: <input type="date" onChange={e => setForm({...form, from:e.target.value})} required /></label>
-                                <label>Do: <input type="date" onChange={e => setForm({...form, to:e.target.value})} required /></label>
-                                <button>Odeslat žádost</button>
-                            </form>
-                            
-                            <h4>Moje žádosti:</h4>
-                            {requests.filter(r => r.user_id === session.user.id).map(r => (
-                                <div key={r.id} style={{padding:5, borderBottom:'1px solid #eee'}}>
-                                    {r.date_from} až {r.date_to}: 
-                                    {r.status === 'pending' ? ' 🟠 Čeká se' : r.status === 'approved' ? ' ✅ Schváleno' : ' ❌ Zamítnuto'}
+                        <div>
+                            <div style={{display:'flex', justifyContent:'space-between'}}>
+                                <h3>Aplikace běží</h3>
+                                <button onClick={() => supabase.auth.signOut()} style={{background:'#666'}}>Odhlásit se</button>
+                            </div>
+
+                            {isAdmin ? (
+                                <div className="card" style={{borderLeft: '5px solid green'}}>
+                                    <h2 style={{color:'green', marginTop:0}}>👑 VÍTEJ ŠÉFE (ADMIN PANEL)</h2>
+                                    <p>Zde můžeš schvalovat dovolené:</p>
+                                    {requests.map(r => (
+                                        <div key={r.id} style={{padding: 10, borderBottom: '1px solid #eee', display:'flex', justifyContent:'space-between'}}>
+                                            <span>{r.profiles?.full_name} ({r.date_from} - {r.date_to})</span>
+                                            <div>
+                                                <button onClick={() => handleStatus(r.id, 'approved')} style={{background:'green', marginRight:5}}>✅</button>
+                                                <button onClick={() => handleStatus(r.id, 'rejected')} style={{background:'red'}}>❌</button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="card">
+                                    <h3>➕ Žádost o dovolenou</h3>
+                                    <form onSubmit={handleSubmit}>
+                                        <input type="date" onChange={e => setForm({...form, from:e.target.value})} />
+                                        <input type="date" onChange={e => setForm({...form, to:e.target.value})} />
+                                        <button>Odeslat</button>
+                                    </form>
+                                    <h4>Moje žádosti:</h4>
+                                    <ul>
+                                        {requests.filter(r => r.user_id === session.user.id).map(r => (
+                                            <li key={r.id}>{r.date_from} - {r.status}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
