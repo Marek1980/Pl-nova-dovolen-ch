@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Plánovač Dovolených</title>
+  <!-- Tímto stáhneme React a Supabase bez instalace -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+    input { padding: 8px; margin: 5px; }
+    button { padding: 8px 15px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 4px; }
+    .status-approved { color: green; font-weight: bold; }
+    .status-pending { color: red; font-weight: bold; }
+    li { border-bottom: 1px solid #ccc; padding: 10px 0; list-style: none; }
+  </style>
+</head>
+<body>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // --- ZDE DOPLŇ SVÉ ÚDAJE ZE SUPABASE ---
+    const SUPABASE_URL = 'hhttps://bprawiumolizfnhuigpf.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_OCC-K3xibSWzFoLgcQ7kyg_39EH34zQ';
+    // ----------------------------------------
+
+    const { createClient } = window.supabase;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function App() {
+      const [session, setSession] = React.useState(null);
+      const [loading, setLoading] = React.useState(false);
+      const [requests, setRequests] = React.useState([]);
+      
+      const [email, setEmail] = React.useState('');
+      const [password, setPassword] = React.useState('');
+      const [dateFrom, setDateFrom] = React.useState('');
+      const [dateTo, setDateTo] = React.useState('');
+
+      React.useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          setSession(session);
+          if(session) fetchRequests();
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          setSession(session);
+          if(session) fetchRequests();
+        });
+
+        return () => subscription.unsubscribe();
+      }, []);
+
+      const fetchRequests = async () => {
+        const { data, error } = await supabase
+          .from('leave_requests')
+          .select('*, profiles(full_name)')
+          .order('created_at', { ascending: false });
+        if (!error) setRequests(data);
+      };
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+           const { error: signUpError } = await supabase.auth.signUp({ email, password });
+           if (signUpError) alert(signUpError.message);
+           else alert("Registrace úspěšná! Jsi přihlášen.");
+        }
+        setLoading(false);
+      };
+
+      const handleLogout = async () => {
+        await supabase.auth.signOut();
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!dateFrom || !dateTo) return;
+        
+        const { data: { user } } = await supabase.auth.getUser();
+
+        // 1. Kontrola profilu
+        const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+        if (!profile) {
+            await supabase.from('profiles').insert([{ id: user.id, full_name: email.split('@')[0] }]);
+        }
+
+        // 2. Vložení dovolené
+        const { error } = await supabase.from('leave_requests').insert([
+          { user_id: user.id, date_from: dateFrom, date_to: dateTo }
+        ]);
+
+        if (error) alert('Chyba: ' + error.message);
+        else {
+            alert('Žádost odeslána!');
+            fetchRequests();
+        }
+      };
+
+      if (!session) {
+        return (
+          <div style={{textAlign: 'center', marginTop: '50px'}}>
+            <h2>🔐 Přihlášení</h2>
+            <form onSubmit={handleLogin}>
+              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+              <br/>
+              <input type="password" placeholder="Heslo" value={password} onChange={e => setPassword(e.target.value)} required />
+              <br/><br/>
+              <button type="submit" disabled={loading}>{loading ? 'Čekej...' : 'Vstoupit'}</button>
+            </form>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <h3>🌴 Plánovač</h3>
+            <button onClick={handleLogout} style={{background: '#666'}}>Odhlásit</button>
+          </div>
+
+          <div style={{ background: '#f4f4f4', padding: '15px', borderRadius: '5px' }}>
+            <h4>Nová dovolená</h4>
+            <form onSubmit={handleSubmit}>
+                Od: <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} /> 
+                Do: <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} /> 
+                <button type="submit">Odeslat</button>
+            </form>
+          </div>
+
+          <h4>Seznam žádostí:</h4>
+          <ul>
+            {requests.map(req => (
+                <li key={req.id}>
+                    <strong>{req.profiles?.full_name || 'Neznámý'}</strong>: {req.date_from} — {req.date_to} 
+                    <span style={{float: 'right'}} className={req.status === 'approved' ? 'status-approved' : 'status-pending'}>
+                        {req.status === 'approved' ? 'SCHVÁLENO' : 'ČEKÁ SE'}
+                    </span>
+                </li>
+            ))}
+             {requests.length === 0 && <p>Zatím žádné žádosti.</p>}
+          </ul>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
