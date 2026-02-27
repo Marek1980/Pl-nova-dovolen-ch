@@ -1,202 +1,176 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <title>Plánovač PRO (Admin)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
-  <style>
-    body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto; background: #f3f4f6; color:#1f2937; }
-    h2, h3 { color: #111827; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    
-    input { padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; width: 100%; box-sizing: border-box; }
-    button { padding: 10px 15px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; width: 100%; transition: 0.2s; }
-    button:hover { background: #1d4ed8; }
-    button.secondary { background: #6b7280; width: auto; }
-    
-    /* Admin Panel Styly */
-    .admin-header { background: #1e3a8a; color: white; padding: 15px; border-radius: 12px 12px 0 0; display:flex; justify-content:space-between; align-items:center; }
-    .admin-body { background: white; padding: 20px; border-radius: 0 0 12px 12px; border: 1px solid #bfdbfe; }
-    .admin-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f3f4f6; padding: 12px 0; }
-    .admin-row:last-child { border-bottom: none; }
-    
-    .btn-approve { background: #059669; width: auto; padding: 6px 12px; margin-left: 10px; }
-    .btn-reject { background: #dc2626; width: auto; padding: 6px 12px; margin-left: 5px; }
-
-    /* Kalendář */
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
-    .day { min-height: 90px; border: 1px solid #e5e7eb; padding: 4px; background: white; font-size: 0.85em; position: relative; }
-    .day-header { text-align: center; font-weight: bold; padding: 5px; color: #666; }
-    .weekend { background: #f9fafb; color: #999; }
-    .holiday { background: #fff1f2; color: #991b1b; }
-    .event { display: block; padding: 3px 5px; margin-top: 2px; border-radius: 4px; color: white; font-size: 0.75em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .approved { background: #059669; } .pending { background: #f59e0b; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plánovač dovolených</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        button { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
+        button:hover { background: #2563eb; }
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        .btn-approve { background: #22c55e; width: auto; margin-right: 5px; }
+        .btn-reject { background: #ef4444; width: auto; }
+        .debug-bar { background: #fffbeb; border: 2px solid #fbbf24; color: #92400e; padding: 15px; margin-bottom: 20px; border-radius: 8px; font-family: monospace; }
+    </style>
 </head>
 <body>
+    <div id="root"></div>
 
-  <div id="root"></div>
+    <script type="text/babel">
+        // ❗❗ ZDE DOPLŇ SVÉ ÚDAJE ❗❗
+        const SUPABASE_URL = 'https://bprawiumolizfnhuigpf.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_OCC-K3xibSWzFoLgcQ7kyg_39EH34zQ';
+        
+        // ❗❗ TADY MUSÍ BÝT TVŮJ EMAIL PŘESNĚ NA ZNAK ❗❗
+        const ADMIN_EMAIL = 'marek.horacek@alza.cz'; 
 
-  <script type="text/babel">
-    // --- ⬇️ NASTAVENÍ (DOPLŇ TOTO!) ⬇️ ---
-    const SUPABASE_URL = 'https://bprawiumolizfnhuigpf.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_OCC-K3xibSWzFoLgcQ7kyg_39EH34zQ'; 
-    const ADMIN_EMAIL  = 'marek.horacek@alza.cz'; // 👈 ZDE MUSÍ BÝT TVŮJ EMAIL (malá písmena!)
-    // ----------------------------------------
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const { createClient } = window.supabase;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        function App() {
+            const [session, setSession] = React.useState(null);
+            const [requests, setRequests] = React.useState([]);
+            const [form, setForm] = React.useState({ email: '', pass: '', from: '', to: '' });
+            const [isAdmin, setIsAdmin] = React.useState(false);
 
-    const holidays = { '1-1':'Nový rok', '1-5':'Svátek práce', '8-5':'Den vítězství', '5-7':'C. a Metoděj', '6-7':'Jan Hus', '28-9':'Václav', '28-10':'Vznik ČSR', '17-11':'Den boje', '24-12':'Štědrý den', '25-12':'1. svátek', '26-12':'2. svátek', '3-4':'Velký pátek', '6-4':'Velikonoce' };
+            React.useEffect(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setSession(session);
+                    if (session) checkUser(session);
+                });
 
-    function Calendar({ requests }) {
-      const [date, setDate] = React.useState(new Date());
-      const year = date.getFullYear(), month = date.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const startDay = (new Date(year, month, 1).getDay() + 6) % 7; 
-      const days = [];
-      ['Po','Út','St','Čt','Pá','So','Ne'].forEach(d => days.push(<div key={d} className="day-header">{d}</div>));
-      for(let i=0; i<startDay; i++) days.push(<div key={`e-${i}`}></div>);
-      
-      for(let d=1; d<=daysInMonth; d++) {
-        const curDate = new Date(year, month, d);
-        const dateKey = `${d}-${month+1}`;
-        const isWknd = curDate.getDay()===0 || curDate.getDay()===6;
-        const dayReqs = requests.filter(r => r.status !== 'rejected' && curDate >= new Date(r.date_from) && curDate <= new Date(r.date_to));
-        days.push(
-            <div key={d} className={`day ${isWknd?'weekend':''} ${holidays[dateKey]?'holiday':''}`}>
-                <div style={{fontWeight:'bold'}}>{d}</div>
-                {holidays[dateKey] && <span style={{fontSize:'0.7em', display:'block'}}>{holidays[dateKey]}</span>}
-                {dayReqs.map(r => <span key={r.id} className={`event ${r.status}`} title={r.profiles?.full_name}>{r.profiles?.full_name}</span>)}
-            </div>
-        );
-      }
-      return (
-        <div className="card">
-            <div style={{display:'flex', justifyContent:'space-between', marginBottom:10}}>
-                <button className="secondary" onClick={()=>setDate(new Date(year, month-1, 1))}>&lt;</button>
-                <h3 style={{margin:0}}>{date.toLocaleString('cs-CZ', {month:'long', year:'numeric'})}</h3>
-                <button className="secondary" onClick={()=>setDate(new Date(year, month+1, 1))}>&gt;</button>
-            </div>
-            <div className="calendar-grid">{days}</div>
-        </div>
-      );
-    }
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                    if (session) checkUser(session);
+                });
+                return () => subscription.unsubscribe();
+            }, []);
 
-    function App() {
-      const [session, setSession] = React.useState(null);
-      const [requests, setRequests] = React.useState([]);
-      const [form, setForm] = React.useState({email:'', pass:'', from:'', to:''});
-      const [isAdmin, setIsAdmin] = React.useState(false);
+            const checkUser = (s) => {
+                // Tady probíhá kontrola:
+                const jeToAdmin = s.user.email.trim().toLowerCase() === ADMIN_EMAIL.trim().toLowerCase();
+                setIsAdmin(jeToAdmin);
+                fetchRequests();
+            };
 
-      React.useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if(session) checkUser(session); });
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if(session) checkUser(session); });
-        return () => subscription.unsubscribe();
-      }, []);
+            const fetchRequests = async () => {
+                const { data } = await supabase.from('leave_requests').select('*, profiles(full_name)').order('created_at', { ascending: false });
+                setRequests(data || []);
+            };
 
-      const checkUser = (s) => { 
-          // Kontrola admina (převedeme na malá písmena pro jistotu)
-          setIsAdmin(s.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()); 
-          fetchRequests(); 
-      }
+            const handleStatus = async (id, status) => {
+                if (confirm('Opravdu chcete změnit stav?')) {
+                    await supabase.from('leave_requests').update({ status }).eq('id', id);
+                    fetchRequests();
+                }
+            };
 
-      const fetchRequests = async () => {
-        const { data } = await supabase.from('leave_requests').select('*, profiles(full_name)').order('created_at', {ascending: false});
-        setRequests(data || []);
-      };
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
+                if (error) {
+                    const { error: signUpError } = await supabase.auth.signUp({ email: form.email, password: form.pass });
+                    if (signUpError) alert("Chyba: " + signUpError.message);
+                    else alert("Účet vytvořen! Zkontroluj email nebo se zkus přihlásit znovu.");
+                }
+            };
 
-      const handleStatus = async (id, status) => {
-          if(!confirm(`Opravdu změnit na: ${status}?`)) return;
-          await supabase.from('leave_requests').update({ status }).eq('id', id);
-          fetchRequests();
-      };
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const { data: { user } } = await supabase.auth.getUser();
+                // Uložení jména (pokud neexistuje)
+                await supabase.from('profiles').upsert({ id: user.id, full_name: user.email.split('@')[0] });
+                // Uložení žádosti
+                const { error } = await supabase.from('leave_requests').insert([{ user_id: user.id, date_from: form.from, date_to: form.to }]);
+                
+                if(error) alert('Chyba: ' + error.message);
+                else { alert('Odesláno ke schválení!'); fetchRequests(); }
+            };
 
-      const handleLogin = async (e) => {
-        e.preventDefault();
-        const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
-        if (error) await supabase.auth.signUp({ email: form.email, password: form.pass });
-      };
-
-      const handleSubmit = async (e) => {
-        e.preventDefault();
-        const { data: { user } } = await supabase.auth.getUser();
-        await supabase.from('profiles').insert([{ id: user.id, full_name: form.email.split('@')[0] }]).select(); 
-        await supabase.from('leave_requests').insert([{ user_id: user.id, date_from: form.from, date_to: form.to }]);
-        alert('Odesláno ke schválení!'); fetchRequests();
-      };
-
-      if (!session) return (
-        <div style={{display:'flex', justifyContent:'center', height:'100vh', alignItems:'center'}}>
-            <form className="card" onSubmit={handleLogin} style={{width:300, textAlign:'center'}}>
-                <h2>🔐 Přihlášení</h2>
-                <input type="email" placeholder="Email" onChange={e => setForm({...form, email:e.target.value})} required style={{marginBottom:10}} />
-                <input type="password" placeholder="Heslo" onChange={e => setForm({...form, pass:e.target.value})} required style={{marginBottom:15}} />
-                <button>Vstoupit</button>
-            </form>
-        </div>
-      );
-
-      const pending = requests.filter(r => r.status === 'pending');
-
-      return (
-        <div>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20}}>
-                <h3>🌴 Plánovač {isAdmin && <span style={{color:'red'}}>(ADMIN)</span>}</h3>
-                <button onClick={() => supabase.auth.signOut()} className="secondary">Odhlásit ({session.user.email})</button>
-            </div>
-
-            {/* --- POHLED PRO ADMINA --- */}
-            {isAdmin ? (
-                <div>
-                    <div className="admin-header">
-                        <h3 style={{color:'white', margin:0}}>👑 Správa dovolených</h3>
-                        <span style={{background:'white', color:'#1e3a8a', padding:'2px 8px', borderRadius:10, fontSize:'0.8em', fontWeight:'bold'}}>
-                            {pending.length} čeká
-                        </span>
-                    </div>
-                    <div className="admin-body">
-                        {pending.length === 0 ? <p style={{textAlign:'center', color:'#666'}}>Vše je schváleno 👍</p> : 
-                            pending.map(r => (
-                                <div key={r.id} className="admin-row">
-                                    <div>
-                                        <strong style={{fontSize:'1.1em'}}>{r.profiles?.full_name}</strong>
-                                        <div style={{color:'#666', fontSize:'0.9em'}}>📅 {r.date_from} — {r.date_to}</div>
-                                    </div>
-                                    <div>
-                                        <button className="btn-approve" onClick={()=>handleStatus(r.id, 'approved')}>✅ Schválit</button>
-                                        <button className="btn-reject" onClick={()=>handleStatus(r.id, 'rejected')}>❌ Zamítnout</button>
-                                    </div>
-                                </div>
-                            ))
-                        }
-                    </div>
-                    <p style={{textAlign:'center', color:'#666', fontSize:'0.9em', marginTop:20}}>Jsi přihlášen jako Admin. Formulář pro novou žádost je skrytý.</p>
-                </div>
-            ) : (
-                /* --- POHLED PRO ZAMĚSTNANCE --- */
-                <div className="card">
-                    <h4>➕ Nová žádost o dovolenou</h4>
-                    <form onSubmit={handleSubmit} style={{display:'flex', gap:10, flexWrap:'wrap'}}>
-                        <div style={{flex:1, minWidth:120}}><label style={{fontSize:'0.8em'}}>Od:</label><input type="date" onChange={e => setForm({...form, from:e.target.value})} /></div>
-                        <div style={{flex:1, minWidth:120}}><label style={{fontSize:'0.8em'}}>Do:</label><input type="date" onChange={e => setForm({...form, to:e.target.value})} /></div>
-                        <button style={{width:'auto', alignSelf:'flex-end', marginBottom:4}}>Odeslat</button>
+            if (!session) return (
+                <div style={{display:'flex', justifyContent:'center', height:'100vh', alignItems:'center'}}>
+                    <form className="card" onSubmit={handleLogin} style={{width:300, textAlign:'center'}}>
+                        <h2>🔐 Přihlášení</h2>
+                        <input type="email" placeholder="Email" onChange={e => setForm({...form, email:e.target.value})} required style={{marginBottom:10}} />
+                        <input type="password" placeholder="Heslo" onChange={e => setForm({...form, pass:e.target.value})} required style={{marginBottom:15}} />
+                        <button>Vstoupit</button>
                     </form>
                 </div>
-            )}
+            );
 
-            <h4 style={{marginTop:30}}>📅 Přehledový kalendář</h4>
-            <Calendar requests={requests} />
-        </div>
-      );
-    }
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+            const pending = requests.filter(r => r.status === 'pending');
+
+            return (
+                <div>
+                    {/* 🕵️ DETEKTIVNÍ LIŠTA - ukáže ti pravdu */}
+                    <div className="debug-bar">
+                        <strong>🕵️ DETEKTIVNÍ INFO:</strong><br/>
+                        Přihlášený email (Supabase): <b>"{session.user.email}"</b><br/>
+                        Email v kódu (ADMIN_EMAIL): <b>"{ADMIN_EMAIL}"</b><br/>
+                        <hr style={{borderColor:'#fbbf24'}}/>
+                        Shodují se? 👉 <b>{isAdmin ? "✅ ANO (Jsi Admin)" : "❌ NE (Jsi Zaměstnanec)"}</b>
+                    </div>
+
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20}}>
+                        <h3>🌴 Plánovač {isAdmin && <span style={{color:'red'}}>(ADMIN)</span>}</h3>
+                        <button onClick={() => supabase.auth.signOut()} style={{width:'auto', background:'#666'}}>Odhlásit</button>
+                    </div>
+
+                    {isAdmin ? (
+                        // POHLED PRO ADMINA
+                        <div className="card" style={{borderLeft:'5px solid #22c55e'}}>
+                            <h2 style={{marginTop:0}}>👑 Správa dovolených</h2>
+                            {pending.length === 0 ? <p>Žádné nové žádosti ke schválení. 👍</p> : 
+                                pending.map(r => (
+                                    <div key={r.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #eee', padding:'10px 0'}}>
+                                        <div>
+                                            <strong>{r.profiles?.full_name || r.user_id}</strong><br/>
+                                            {r.date_from} — {r.date_to}
+                                        </div>
+                                        <div>
+                                            <button className="btn-approve" onClick={()=>handleStatus(r.id, 'approved')}>Schválit</button>
+                                            <button className="btn-reject" onClick={()=>handleStatus(r.id, 'rejected')}>Zamítnout</button>
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                            <h4 style={{marginTop:20, color:'#888'}}>Historie všech žádostí:</h4>
+                            <ul style={{color:'#666'}}>
+                                {requests.filter(r => r.status !== 'pending').map(r => (
+                                    <li key={r.id}>{r.date_from} - {r.status === 'approved' ? '✅' : '❌'} ({r.profiles?.full_name})</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : (
+                        // POHLED PRO ZAMĚSTNANCE
+                        <div className="card">
+                            <h3>➕ Nová žádost</h3>
+                            <form onSubmit={handleSubmit} style={{display:'flex', gap:10, flexDirection:'column'}}>
+                                <label>Od: <input type="date" onChange={e => setForm({...form, from:e.target.value})} required /></label>
+                                <label>Do: <input type="date" onChange={e => setForm({...form, to:e.target.value})} required /></label>
+                                <button>Odeslat žádost</button>
+                            </form>
+                            
+                            <h4>Moje žádosti:</h4>
+                            {requests.filter(r => r.user_id === session.user.id).map(r => (
+                                <div key={r.id} style={{padding:5, borderBottom:'1px solid #eee'}}>
+                                    {r.date_from} až {r.date_to}: 
+                                    {r.status === 'pending' ? ' 🟠 Čeká se' : r.status === 'approved' ? ' ✅ Schváleno' : ' ❌ Zamítnuto'}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
