@@ -94,7 +94,7 @@
             top: 0; left: 0; right: 0; bottom: 0;
             background-size: cover;      
             background-position: center; 
-            opacity: 0.15;               /* ⚠️ PRŮHLEDNOST POZADÍ */
+            opacity: 0.25;               /* ⚠️ PRŮHLEDNOST POZADÍ */
             z-index: 0;                  
             pointer-events: none;        
             filter: grayscale(20%);      
@@ -141,20 +141,43 @@
         function Calendar({ requests }) {
             const [viewDate, setViewDate] = React.useState(new Date());
             
-            // Obrázky pro pozadí (Leden - Prosinec) - NOVÁ SADA
+            // 📸 SADA "PREMIUM SEASONS" (Realistické, atmosférické)
             const monthThemes = [
-                "https://images.unsplash.com/photo-1477601263568-180e2c6d046e?q=80&w=800", // 1. Leden (Zima/Les)
-                "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?q=80&w=800", // 2. Únor (Hory/Sníh)
-                "https://images.unsplash.com/photo-1558293842-c0fd3db86157?q=80&w=800",    // 3. Březen (Jarní květy - NOVÝ)
-                "https://images.unsplash.com/photo-1522748906645-95d8adfd52c7?q=80&w=800", // 4. Duben (Zeleň)
-                "https://images.unsplash.com/photo-1490750967868-58cb75063ed4?q=80&w=800", // 5. Květen (Rozkvetlá louka - NOVÝ)
-                "https://images.unsplash.com/photo-1617957743097-0d20d852f1e4?q=80&w=800", // 6. Červen (Jahody/Léto - NOVÝ)
-                "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800", // 7. Červenec (Pláž)
-                "https://images.unsplash.com/photo-1626027602324-4f0142d72960?q=80&w=800", // 8. Srpen (Obilí/Slunce - NOVÝ)
-                "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800", // 9. Září (Hory/Podzim)
-                "https://images.unsplash.com/photo-1509023464722-18d996393ca8?q=80&w=800", // 10. Říjen (Dýně/Listí)
-                "https://images.unsplash.com/photo-1444492417251-9c84a5fa18e0?q=80&w=800", // 11. Listopad (Mlha)
-                "https://images.unsplash.com/photo-1543589077-47d81606c1bf?q=80&w=800"     // 12. Prosinec (Světýlka)
+                // 1. Leden - Zasněžený les (Bílá/Modrá)
+                "https://images.unsplash.com/photo-1477601263568-180e2c6d046e?w=800&q=80",
+                
+                // 2. Únor - Mráz na květině / Detail ledu (Studená modrá)
+                "https://plus.unsplash.com/premium_photo-1670347626594-d60b7c3e2ba5?w=800&q=80",
+                
+                // 3. Březen - První sněženky / Krokusy (Zelená/Bílá)
+                "https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?w=800&q=80",
+                
+                // 4. Duben - Rozkvetlé třešně/Sakura (Růžová)
+                "https://images.unsplash.com/photo-1522748906645-95d8adfd52c7?w=800&q=80",
+                
+                // 5. Květen - Sytě zelená louka a slunce (Jarní zelená)
+                "https://images.unsplash.com/photo-1506152983158-b4a74a01c721?w=800&q=80",
+                
+                // 6. Červen - Slunečnice / Začátek léta (Červená/Zelená)
+                "https://plus.unsplash.com/premium_photo-1670574872504-56cdb36ffa64?w=800&q=80",
+                
+                // 7. Červenec - Tyrkysové moře / Pláž (Letní modrá)
+                "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
+                
+                // 8. Srpen - Zlaté obilné pole / Žně (Zlatá/Žlutá)
+                "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=800&q=80",
+                
+                // 9. Září - Mlhavé hory / Babí léto (Tlumená zelená)
+                "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
+                
+                // 10. Říjen - Barevné spadané listí (Oranžová/Hnědá)
+                "https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=800&q=80",
+                
+                // 11. Listopad - Deštivé okno / Sychravo (Šedá/Modrá)
+                "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=800&q=80",
+                
+                // 12. Prosinec - Vánoční světýlka / Bokeh (Zlatá/Tmavá)
+                "https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&q=80"
             ];
 
             const changeMonth = (offset) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
