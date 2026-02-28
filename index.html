@@ -116,7 +116,7 @@
 
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Pomocná funkce pro názvy typů
+        // --- POMOCNÉ FUNKCE (SVÁTKY A VÝPOČTY) ---
         const getTypeName = (type) => {
             if (type === 'half') return '🌓 Půl den';
             if (type === 'whatever') return '🦄 Whatever';
@@ -137,46 +137,68 @@
             return null;
         };
 
-        // --- KOMPONENTA KALENDÁŘE S OBRÁZKY ---
+        const calculateWorkDays = (startStr, endStr) => {
+            if (!startStr || !endStr) return 0;
+            let count = 0;
+            let current = new Date(startStr);
+            const end = new Date(endStr);
+            while (current <= end) {
+                const day = current.getDate();
+                const month = current.getMonth() + 1;
+                const year = current.getFullYear();
+                const dayOfWeek = current.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isHoliday = getCzechHoliday(day, month, year) !== null;
+                
+                if (!isWeekend && !isHoliday) {
+                    count++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return count;
+        };
+
+        // --- KOMPONENTA: KDO DNES CHYBÍ (WIDGET) ---
+        function WhoIsMissing({ requests }) {
+            const today = new Date().toISOString().split('T')[0];
+            const missing = requests.filter(r => 
+                r.status === 'approved' && r.date_from <= today && r.date_to >= today
+            );
+            if (missing.length === 0) return null;
+            return (
+                <div className="card" style={{borderLeft: '5px solid #ef4444', background: '#fff5f5'}}>
+                    <h3 style={{marginBottom: 10, color: '#b91c1c'}}>🚫 Dnes ({new Date().toLocaleDateString('cs-CZ')}) chybí:</h3>
+                    <div style={{display:'flex', gap: 10, flexWrap:'wrap'}}>
+                        {missing.map(r => (
+                            <div key={r.id} style={{background:'white', padding:'5px 10px', borderRadius:20, border:'1px solid #fecaca', display:'flex', alignItems:'center', gap:5}}>
+                                <strong>{r.profiles?.full_name}</strong>
+                                <span style={{fontSize:'0.8em', color:'#666'}}>
+                                    {r.type === 'whatever' ? '🦄 Sick/HO' : '🌴 Dovolená'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- KOMPONENTA: KALENDÁŘ ---
         function Calendar({ requests }) {
             const [viewDate, setViewDate] = React.useState(new Date());
             
-            // 📸 SADA "PREMIUM SEASONS" (Realistické, atmosférické)
+            // 📸 ČISTÁ SADA OBRÁZKŮ (Leden - Prosinec)
             const monthThemes = [
-                // 1. Leden - Zasněžený les (Bílá/Modrá)
                 "https://images.unsplash.com/photo-1477601263568-180e2c6d046e?w=800&q=80",
-                
-                // 2. Únor - Mráz na květině / Detail ledu (Studená modrá)
                 "https://plus.unsplash.com/premium_photo-1670347626594-d60b7c3e2ba5?w=800&q=80",
-                
-                // 3. Březen - První sněženky / Krokusy (Zelená/Bílá)
                 "https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?w=800&q=80",
-                
-                // 4. Duben - Rozkvetlé třešně/Sakura (Růžová)
                 "https://images.unsplash.com/photo-1522748906645-95d8adfd52c7?w=800&q=80",
-                
-                // 5. Květen - Sytě zelená louka a slunce (Jarní zelená)
                 "https://images.unsplash.com/photo-1506152983158-b4a74a01c721?w=800&q=80",
-                
-                // 6. Červen - Slunečnice / Začátek léta (Červená/Zelená)
                 "https://plus.unsplash.com/premium_photo-1670574872504-56cdb36ffa64?w=800&q=80",
-                
-                // 7. Červenec - Tyrkysové moře / Pláž (Letní modrá)
                 "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
-                
-                // 8. Srpen - Zlaté obilné pole / Žně (Zlatá/Žlutá)
                 "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=800&q=80",
-                
-                // 9. Září - Mlhavé hory / Babí léto (Tlumená zelená)
                 "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
-                
-                // 10. Říjen - Barevné spadané listí (Oranžová/Hnědá)
                 "https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=800&q=80",
-                
-                // 11. Listopad - Deštivé okno / Sychravo (Šedá/Modrá)
                 "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=800&q=80",
-                
-                // 12. Prosinec - Vánoční světýlka / Bokeh (Zlatá/Tmavá)
                 "https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&q=80"
             ];
 
@@ -198,11 +220,8 @@
             };
 
             return (
-                <div className="month-card"> {/* Tady je ta nová třída pro obrázek */}
-                    
-                    {/* Pozadí měsíce */}
+                <div className="month-card">
                     <div className="month-bg-image" style={{ backgroundImage: `url(${monthThemes[month]})` }}></div>
-
                     <div className="calendar-header">
                         <button className="btn-nav" onClick={() => changeMonth(-1)}>⬅️</button>
                         <h3 style={{margin:0, textTransform:'capitalize', fontSize:'1.5em', textShadow:'0 0 10px white'}}>{monthName}</h3>
@@ -247,65 +266,116 @@
             const [session, setSession] = React.useState(null);
             const [requests, setRequests] = React.useState([]);
             const [allowedEmails, setAllowedEmails] = React.useState([]);
+            const [myProfile, setMyProfile] = React.useState(null);
+            const [allProfiles, setAllProfiles] = React.useState([]);
+            
             const [form, setForm] = React.useState({ email: '', from: '', to: '', type: 'vacation', newUser: '' });
             const [isAdmin, setIsAdmin] = React.useState(false);
             const [loading, setLoading] = React.useState(false);
 
+            const [workDaysCost, setWorkDaysCost] = React.useState(0);
+
             React.useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
-                    if (session) checkUser(session);
+                    if (session) initData(session);
                 });
                 const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
                     setSession(session);
-                    if (session) checkUser(session);
+                    if (session) initData(session);
                 });
                 return () => subscription.unsubscribe();
             }, []);
 
-            const checkUser = (s) => {
+            React.useEffect(() => {
+                if (form.from && form.to) {
+                    const days = calculateWorkDays(form.from, form.to);
+                    if (form.type === 'half') {
+                         setWorkDaysCost(4); 
+                    } else {
+                         setWorkDaysCost(days * 8); 
+                    }
+                } else {
+                    setWorkDaysCost(0);
+                }
+            }, [form.from, form.to, form.type]);
+
+            const initData = async (s) => {
                 const userEmail = s.user.email.toLowerCase().trim();
                 const adminEmail = ADMIN_EMAIL.toLowerCase().trim();
                 setIsAdmin(userEmail === adminEmail);
                 fetchRequests();
-                if (userEmail === adminEmail) fetchAllowedEmails();
+                
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', s.user.id).single();
+                setMyProfile(profile);
+
+                if (userEmail === adminEmail) {
+                    fetchAllowedEmails();
+                    fetchAllProfiles();
+                }
             };
 
             const fetchRequests = async () => {
                 const { data } = await supabase.from('leave_requests').select('*, profiles(full_name)').order('date_from', { ascending: true });
                 setRequests(data || []);
             };
-
             const fetchAllowedEmails = async () => {
                 const { data } = await supabase.from('allowed_emails').select('*');
                 setAllowedEmails(data || []);
             };
+            const fetchAllProfiles = async () => {
+                const { data } = await supabase.from('profiles').select('*');
+                setAllProfiles(data || []);
+            };
+
+            const calculateBalance = () => {
+                if (!myProfile) return { vacLeft: 0, vacTotal: 0, whatLeft: 0, whatTotal: 0 };
+                
+                const myVacationRequests = requests.filter(r => r.user_id === session.user.id && r.status === 'approved');
+                
+                let usedVacationHours = 0;
+                let usedWhateverDays = 0;
+
+                myVacationRequests.forEach(r => {
+                    if (r.type === 'vacation') {
+                        usedVacationHours += calculateWorkDays(r.date_from, r.date_to) * 8;
+                    } else if (r.type === 'half') {
+                        usedVacationHours += 4;
+                    } else if (r.type === 'whatever') {
+                        usedWhateverDays += calculateWorkDays(r.date_from, r.date_to);
+                    }
+                });
+
+                return {
+                    vacLeft: (myProfile.vacation_limit || 160) - usedVacationHours,
+                    vacTotal: myProfile.vacation_limit || 160,
+                    whatLeft: (myProfile.whatever_limit || 5) - usedWhateverDays,
+                    whatTotal: myProfile.whatever_limit || 5
+                };
+            };
+
+            const balance = calculateBalance();
 
             const handleSimpleLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
+                e.preventDefault(); setLoading(true);
                 const email = form.email.toLowerCase().trim();
-
-                // 1. Pokud je to ADMIN, zkusíme rovnou přihlásit/registrovat
                 if (email === ADMIN_EMAIL.toLowerCase().trim()) {
                     const { error } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASS });
                     if (error) await supabase.auth.signUp({ email, password: DEFAULT_PASS });
                     return;
                 }
-
-                // 2. Pokud je to UŽIVATEL, zkontrolujeme 'allowed_emails'
                 const { data: allowed } = await supabase.from('allowed_emails').select('*').eq('email', email).single();
-                
-                if (!allowed) { 
-                    alert("⛔ Tento email nemá povolený přístup. Požádejte Marka."); 
-                    setLoading(false); 
-                    return; 
-                }
-
-                // 3. Je na seznamu -> přihlásíme ho
+                if (!allowed) { alert("⛔ Tento email nemá povolený přístup."); setLoading(false); return; }
                 const { error } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASS });
                 if (error) await supabase.auth.signUp({ email, password: DEFAULT_PASS });
                 setLoading(false);
+            };
+
+            const handleUpdateLimit = async (userId, field, value) => {
+                const newValue = parseInt(value);
+                if (isNaN(newValue)) return;
+                await supabase.from('profiles').update({ [field]: newValue }).eq('id', userId);
+                fetchAllProfiles(); 
             };
 
             const handleAddUser = async (e) => {
@@ -313,7 +383,6 @@
                 await supabase.from('allowed_emails').insert([{ email: form.newUser.toLowerCase().trim() }]);
                 setForm({...form, newUser: ''}); fetchAllowedEmails(); alert("Přidáno.");
             };
-
             const handleDeleteUser = async (id) => { if(confirm("Smazat?")) { await supabase.from('allowed_emails').delete().eq('id', id); fetchAllowedEmails(); } };
             const handleStatus = async (id, status) => { await supabase.from('leave_requests').update({ status }).eq('id', id); fetchRequests(); };
             const handleDeleteRequest = async (id) => { if(confirm("Smazat dovolenou?")) { await supabase.from('leave_requests').delete().eq('id', id); fetchRequests(); } };
@@ -321,21 +390,15 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 const { data: { user } } = await supabase.auth.getUser();
-                // Ujistíme se, že existuje v profilech
                 await supabase.from('profiles').upsert({ id: user.id, full_name: user.email.split('@')[0] });
-                
-                // Odeslání žádosti včetně TYPU
                 const { error } = await supabase.from('leave_requests').insert([{ 
-                    user_id: user.id, 
-                    date_from: form.from, 
-                    date_to: form.to,
-                    type: form.type // <--- Tady se ukládá typ (half, whatever...)
+                    user_id: user.id, date_from: form.from, date_to: form.to, type: form.type
                 }]);
                 if (error) alert(error.message); else { alert("Odesláno!"); fetchRequests(); }
             };
 
             if (!session) return (
-                <div style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', flexDirection:'column', gap: 20}}>
+                <div style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', flexDirection:'column'}}>
                     <form className="card" onSubmit={handleSimpleLogin} style={{width: 320, textAlign:'center'}}>
                         <h2>👋 Alza Plánovač</h2>
                         <input type="email" placeholder="vas.email@alza.cz" onChange={e => setForm({...form, email:e.target.value})} required />
@@ -349,6 +412,7 @@
 
             return (
                 <div className="container">
+                    {/* HLAVIČKA */}
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20}}>
                         <h2>🌴 Plánovač Dovolených</h2>
                         <div style={{textAlign:'right'}}>
@@ -357,39 +421,82 @@
                         </div>
                     </div>
 
+                    {/* 1. WIDGET: KDO DNES CHYBÍ */}
+                    <WhoIsMissing requests={requests} />
+
+                    {/* 2. DASHBOARD: ZŮSTATEK */}
+                    <div className="card" style={{background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border:'1px solid #bae6fd'}}>
+                        <h3>📊 Můj zůstatek</h3>
+                        <div style={{display:'flex', justifyContent:'space-around', alignItems:'center', flexWrap:'wrap', gap:20}}>
+                            <div style={{textAlign:'center', background:'white', padding:15, borderRadius:10, boxShadow:'0 2px 5px rgba(0,0,0,0.05)', minWidth: 150}}>
+                                <div style={{fontSize:'2em', fontWeight:'bold', color:'#3b82f6'}}>
+                                    {balance.vacLeft} <span style={{fontSize:'0.4em', color:'#94a3b8'}}>h</span>
+                                </div>
+                                <div style={{fontSize:'0.8em', color:'#64748b'}}>z {balance.vacTotal} hodin</div>
+                                <strong style={{color:'#3b82f6'}}>Dovolená</strong>
+                            </div>
+                            <div style={{textAlign:'center', background:'white', padding:15, borderRadius:10, boxShadow:'0 2px 5px rgba(0,0,0,0.05)', minWidth: 150}}>
+                                <div style={{fontSize:'2em', fontWeight:'bold', color:'#d946ef'}}>
+                                    {balance.whatLeft} <span style={{fontSize:'0.4em', color:'#94a3b8'}}>dní</span>
+                                </div>
+                                <div style={{fontSize:'0.8em', color:'#64748b'}}>z {balance.whatTotal} dní</div>
+                                <strong style={{color:'#d946ef'}}>Whatever Days</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 3. ADMIN PANEL */}
                     {isAdmin && (
                         <div>
                             <div className="card" style={{borderLeft: '4px solid #f59e0b'}}>
                                 <h3>🟠 Ke schválení ({pending.length})</h3>
-                                {pending.length === 0 ? <p style={{color:'#666'}}>Žádné nové žádosti.</p> : 
+                                {pending.length === 0 ? <p style={{color:'#666'}}>Vše vyřízeno.</p> : 
                                     pending.map(r => (
                                         <div key={r.id} className="row">
-                                            <div>
-                                                <strong>{r.profiles?.full_name}</strong> <span style={{fontSize:'0.8em', color:'#666'}}>({getTypeName(r.type)})</span>
-                                                <br/>{r.date_from} — {r.date_to}
-                                            </div>
+                                            <div><strong>{r.profiles?.full_name}</strong> ({getTypeName(r.type)})<br/>{r.date_from} — {r.date_to}</div>
                                             <div><button className="btn-approve" onClick={()=>handleStatus(r.id, 'approved')}>✅</button><button className="btn-reject" onClick={()=>handleStatus(r.id, 'rejected')}>❌</button></div>
                                         </div>
                                     ))
                                 }
                             </div>
-
+                            
                             <div className="card" style={{borderLeft: '4px solid #8b5cf6'}}>
-                                <h3>👥 Správa týmu (Allowed Emails)</h3>
-                                <form onSubmit={handleAddUser} style={{display:'flex', gap:10, marginBottom:10}}>
+                                <h3>👥 Správa týmu & Limity</h3>
+                                <form onSubmit={handleAddUser} style={{display:'flex', gap:10, marginBottom:20}}>
                                     <input placeholder="kolega@alza.cz" value={form.newUser} onChange={e=>setForm({...form, newUser:e.target.value})} />
-                                    <button style={{width:'auto'}}>Přidat</button>
+                                    <button style={{width:'auto'}}>Přidat email</button>
                                 </form>
-                                {allowedEmails.map(u => (
-                                    <div key={u.id} className="row" style={{padding:'5px 0'}}>
-                                        <span className="user-tag">{u.email}</span>
-                                        {u.email !== ADMIN_EMAIL && <button className="btn-delete" onClick={()=>handleDeleteUser(u.id)}>❌</button>}
-                                    </div>
-                                ))}
+                                <div style={{overflowX:'auto'}}>
+                                    <table style={{width:'100%', borderCollapse:'collapse'}}>
+                                        <thead>
+                                            <tr style={{textAlign:'left', fontSize:'0.8em', color:'#64748b'}}>
+                                                <th>Jméno</th>
+                                                <th>Dovolená (h)</th>
+                                                <th>Whatever (dny)</th>
+                                                <th>Akce</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allProfiles.map(p => (
+                                                <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}}>
+                                                    <td style={{padding:8}}><strong>{p.full_name || 'Nový uživatel'}</strong></td>
+                                                    <td style={{padding:8}}>
+                                                        <input type="number" defaultValue={p.vacation_limit || 160} style={{width:70, padding:5}} onBlur={(e) => handleUpdateLimit(p.id, 'vacation_limit', e.target.value)} />
+                                                    </td>
+                                                    <td style={{padding:8}}>
+                                                        <input type="number" defaultValue={p.whatever_limit || 5} style={{width:50, padding:5}} onBlur={(e) => handleUpdateLimit(p.id, 'whatever_limit', e.target.value)} />
+                                                    </td>
+                                                    <td style={{padding:8, fontSize:'0.8em', color:'#cbd5e1'}}>{p.id.slice(0,5)}...</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
 
+                    {/* 4. FORMULÁŘ ŽÁDOSTI (S WIDGETEM) */}
                     <div className="card">
                         <h3>➕ Nová žádost</h3>
                         <form onSubmit={handleSubmit} style={{display:'flex', gap:10, flexWrap:'wrap'}}>
@@ -397,13 +504,59 @@
                                 <label>Typ volna:</label>
                                 <select onChange={e => setForm({...form, type:e.target.value})} style={{fontWeight:'bold', border:'2px solid #3b82f6'}}>
                                     <option value="vacation">🟦 Dovolená (Celý den)</option>
-                                    <option value="half">🩵 Půl den</option>
+                                    <option value="half">🩵 Půl den (4h)</option>
                                     <option value="whatever">🦄 Whatever Day (Sick/HO)</option>
                                 </select>
                             </div>
                             <div style={{flex:1}}><label>Od:</label><input type="date" onChange={e=>setForm({...form, from:e.target.value})} required /></div>
                             <div style={{flex:1}}><label>Do:</label><input type="date" onChange={e=>setForm({...form, to:e.target.value})} required /></div>
-                            <button style={{width:'auto', alignSelf:'flex-end', marginBottom:8}}>Odeslat žádost</button>
+                            
+                            {/* VYLEPŠENÝ WIDGET PRO VÝPOČET */}
+                            {workDaysCost > 0 && (
+                                <div style={{
+                                    width: '100%',
+                                    marginTop: 15,
+                                    padding: '15px',
+                                    borderRadius: 12,
+                                    background: form.type === 'whatever' ? '#fdf4ff' : '#eff6ff', 
+                                    border: `1px solid ${form.type === 'whatever' ? '#f0abfc' : '#bfdbfe'}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 15,
+                                    boxShadow: '0 2px 5px rgba(0,0,0,0.03)'
+                                }}>
+                                    {/* Ikona */}
+                                    <div style={{
+                                        fontSize: '1.8em', 
+                                        background: 'white', 
+                                        width: 50, height: 50, 
+                                        borderRadius: '50%', 
+                                        display:'flex', justifyContent:'center', alignItems:'center',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                    }}>
+                                        {form.type === 'whatever' ? '🦄' : '⏱️'}
+                                    </div>
+
+                                    {/* Text */}
+                                    <div style={{display:'flex', flexDirection:'column'}}>
+                                        {form.type === 'whatever' ? (
+                                            <span style={{color: '#86198f', fontSize:'1.05em'}}>
+                                                Vybraný termín obsahuje <strong>{workDaysCost / 8} Whatever Days</strong>.
+                                                <br/>
+                                                <span style={{fontSize:'0.85em', color:'#a21caf', fontWeight:'normal'}}>(Sick Days / Home Office)</span>
+                                            </span>
+                                        ) : (
+                                            <span style={{color: '#1e40af', fontSize:'1.05em'}}>
+                                                Vybraný termín obsahuje <strong>{form.type === 'half' ? 0.5 : (workDaysCost / 8)} prac. dní</strong>,
+                                                <br/>
+                                                což je celkem <strong style={{fontSize:'1.2em', textDecoration:'underline'}}>{workDaysCost} hodin</strong>.
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <button style={{width:'auto', marginTop:10}}>Odeslat žádost</button>
                         </form>
                     </div>
 
@@ -411,7 +564,6 @@
                 </div>
             );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
