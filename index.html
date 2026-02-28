@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alza Plánovač - Crystal Master</title>
+    <title>Alza Plánovač - Premium Master</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -60,12 +60,61 @@
         .btn-nav:hover { background: #e0e7ff; }
         .btn-nav.active { background: #4f46e5; color: white; border-color: #4f46e5; }
         
-        /* Tlačítko diskety */
         .btn-save-limit { background: #10b981; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border:none; cursor: pointer; color: white; flex-shrink: 0; }
         .btn-save-limit:hover { background: #059669; }
 
         .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
-        .balance-widget { text-align: center; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); min-width: 150px; border: 2px solid #e2e8f0; }
+        
+        /* --- NOVÝ DESIGN DLAŽDIC ZŮSTATKU (LUXUSNÍ) --- */
+        .balance-widget { 
+            text-align: center; 
+            background: rgba(255, 255, 255, 0.7); 
+            padding: 25px 20px; 
+            border-radius: 24px; 
+            box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.15); 
+            min-width: 180px; 
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        .balance-widget:hover { transform: translateY(-5px); box-shadow: 0 15px 35px -10px rgba(99, 102, 241, 0.25); background: white; }
+        
+        /* Styl nadpisu (Dovolená / Whatever) */
+        .bw-label {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #64748b;
+        }
+        
+        /* Styl čísla (Velké s gradientem) */
+        .bw-value {
+            font-size: 3em;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Gradient pro modrou (Dovolená) */
+        .val-blue { background-image: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        /* Gradient pro růžovou (Whatever) */
+        .val-pink { background-image: linear-gradient(135deg, #d946ef 0%, #db2777 100%); }
+
+        /* Styl limitu (Malá kapsle dole) */
+        .bw-limit {
+            font-size: 0.8em;
+            color: #94a3b8;
+            background: rgba(241, 245, 249, 0.8);
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: 600;
+        }
 
         /* Kalendář */
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; position: relative; z-index: 2; }
@@ -89,7 +138,6 @@
         .history-table, .admin-table, .bday-table { width: 100%; border-collapse: collapse; }
         .history-table th, .admin-table th, .bday-table th { text-align: left; color: #475569; font-size: 0.9em; padding: 12px; border-bottom: 2px solid #e2e8f0; background: rgba(241, 245, 249, 0.5); }
         .history-table td, .admin-table td, .bday-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
-        
         .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: bold; display: inline-block; }
         .status-pending { background: #fef9c3; color: #b45309; border: 1px solid #fde047; }
         .status-approved { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
@@ -113,18 +161,12 @@
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const MONTH_THEMES = [
-            "https://images.unsplash.com/photo-1477601263568-180e2c6d046e?w=800&q=80",
-            "https://plus.unsplash.com/premium_photo-1670347626594-d60b7c3e2ba5?w=800&q=80",
-            "https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?w=800&q=80",
-            "https://images.unsplash.com/photo-1522748906645-95d8adfd52c7?w=800&q=80",
-            "https://images.unsplash.com/photo-1506152983158-b4a74a01c721?w=800&q=80",
-            "https://plus.unsplash.com/premium_photo-1670574872504-56cdb36ffa64?w=800&q=80",
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
-            "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=800&q=80",
-            "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
-            "https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=800&q=80",
-            "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=800&q=80",
-            "https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&q=80"
+            "https://images.unsplash.com/photo-1477601263568-180e2c6d046e?w=800&q=80", "https://plus.unsplash.com/premium_photo-1670347626594-d60b7c3e2ba5?w=800&q=80",
+            "https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?w=800&q=80", "https://images.unsplash.com/photo-1522748906645-95d8adfd52c7?w=800&q=80",
+            "https://images.unsplash.com/photo-1506152983158-b4a74a01c721?w=800&q=80", "https://plus.unsplash.com/premium_photo-1670574872504-56cdb36ffa64?w=800&q=80",
+            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=800&q=80",
+            "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80", "https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=800&q=80",
+            "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=800&q=80", "https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&q=80"
         ];
 
         const getTypeName = (type) => {
@@ -314,7 +356,6 @@
             const [allowedEmails, setAllowedEmails] = React.useState([]);
             const [myProfile, setMyProfile] = React.useState(null);
             const [allProfiles, setAllProfiles] = React.useState([]);
-            
             const [view, setView] = React.useState('dashboard');
             const [form, setForm] = React.useState({ email: '', from: '', to: '', type: 'vacation', newUser: '', bdayName: '', bdayDate: '' });
             const [isAdmin, setIsAdmin] = React.useState(false);
@@ -398,13 +439,11 @@
             
             const handleAddUser = async (e) => { e.preventDefault(); if (!form.newUser) return; await supabase.from('allowed_emails').insert([{ email: form.newUser.toLowerCase().trim() }]); setForm({...form, newUser: ''}); fetchAllowedEmails(); alert("Přidáno."); };
             
-            // ZMĚNA: Reject jen změní status, delete hard smaže
             const handleStatus = async (id, status) => { await supabase.from('leave_requests').update({ status }).eq('id', id); fetchRequests(); };
             const handleHardDelete = async (id) => { if(confirm("Opravdu smazat z databáze?")) { await supabase.from('leave_requests').delete().eq('id', id); fetchRequests(); } };
             
             const handleSubmit = async (e) => {
                 e.preventDefault(); const { data: { user } } = await supabase.auth.getUser();
-                // Jen update, pokud uz profil existuje
                 const { error } = await supabase.from('leave_requests').insert([{ user_id: user.id, date_from: form.from, date_to: form.to, type: form.type, status: 'pending' }]);
                 if (error) alert(error.message); else { alert("Odesláno!"); fetchRequests(); setView('requests'); }
             };
@@ -441,8 +480,20 @@
                             <div className="card" style={{borderLeft: '5px solid #6366f1'}}>
                                 <h3>📊 Můj zůstatek</h3>
                                 <div style={{display:'flex', justifyContent:'space-around', alignItems:'center', flexWrap:'wrap', gap:20}}>
-                                    <div className="balance-widget"><div style={{fontSize:'2em', fontWeight:'bold', color:'#3b82f6'}}>{balance.vacLeft} <span style={{fontSize:'0.4em', color:'#94a3b8'}}>h</span></div><div style={{fontSize:'0.8em', color:'#64748b'}}>z {balance.vacTotal} hodin</div><strong style={{color:'#3b82f6'}}>Dovolená</strong></div>
-                                    <div className="balance-widget"><div style={{fontSize:'2em', fontWeight:'bold', color:'#d946ef'}}>{balance.whatLeft} <span style={{fontSize:'0.4em', color:'#94a3b8'}}>dní</span></div><div style={{fontSize:'0.8em', color:'#64748b'}}>z {balance.whatTotal} dní</div><strong style={{color:'#d946ef'}}>Whatever Days</strong></div>
+                                    
+                                    {/* NOVÉ PREMIUM WIDGETY */}
+                                    <div className="balance-widget">
+                                        <div className="bw-label" style={{color: '#3b82f6'}}>Dovolená</div>
+                                        <div className="bw-value val-blue">{balance.vacLeft}</div>
+                                        <div className="bw-limit">z {balance.vacTotal} hodin</div>
+                                    </div>
+
+                                    <div className="balance-widget">
+                                        <div className="bw-label" style={{color: '#d946ef'}}>Whatever Days</div>
+                                        <div className="bw-value val-pink">{balance.whatLeft}</div>
+                                        <div className="bw-limit">z {balance.whatTotal} dní</div>
+                                    </div>
+
                                 </div>
                             </div>
 
