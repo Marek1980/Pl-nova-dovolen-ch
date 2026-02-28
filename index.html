@@ -25,6 +25,10 @@
         .btn-nav { background: white; color: #3b82f6; border: 2px solid #3b82f6; width: auto; padding: 5px 15px; margin-left: 5px; }
         .btn-nav.active { background: #3b82f6; color: white; }
         
+        /* Tlačítko pro uložení (disketa) */
+        .btn-save-limit { background: #10b981; padding: 8px; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+        .btn-save-limit:hover { background: #059669; }
+
         .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
         .user-tag { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
         
@@ -51,7 +55,6 @@
         .year-grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .year-grid-layout { grid-template-columns: 1fr; } }
         
-        /* Tabulka Narozeniny */
         .bday-table { width: 100%; border-collapse: collapse; }
         .bday-table th { text-align: left; color: #64748b; font-size: 0.9em; padding: 10px; border-bottom: 2px solid #f1f5f9; }
         .bday-table td { padding: 12px 10px; border-bottom: 1px solid #f1f5f9; }
@@ -87,7 +90,6 @@
             "https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&q=80"
         ];
 
-        // --- POMOCNÉ FUNKCE ---
         const getTypeName = (type) => {
             if (type === 'half') return '🌓 Půl den';
             if (type === 'whatever') return '🦄 Whatever';
@@ -132,10 +134,9 @@
             const now = new Date();
             const diff = now - birth;
             const age = diff / (1000 * 60 * 60 * 24 * 365.25);
-            return age.toFixed(1); // 1 desetinné místo
+            return age.toFixed(1);
         };
 
-        // --- KOMPONENTY KALENDÁŘE ---
         function SingleMonthView({ monthIndex, year, requests }) {
             const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
             const firstDayIndex = new Date(year, monthIndex, 1).getDay();
@@ -276,22 +277,18 @@
             );
         }
 
-        // --- HLAVNÍ APLIKACE ---
         function App() {
             const [session, setSession] = React.useState(null);
             const [requests, setRequests] = React.useState([]);
             const [allowedEmails, setAllowedEmails] = React.useState([]);
             const [myProfile, setMyProfile] = React.useState(null);
             const [allProfiles, setAllProfiles] = React.useState([]);
-            
-            // PŘEPÍNÁNÍ POHLEDŮ: 'dashboard', 'year', 'birthdays'
             const [view, setView] = React.useState('dashboard');
-
-            const [form, setForm] = React.useState({ email: '', from: '', to: '', type: 'vacation', newUser: '' });
+            const [form, setForm] = React.useState({ email: '', from: '', to: '', type: 'vacation', newUser: '', bdayName: '', bdayDate: '' });
             const [isAdmin, setIsAdmin] = React.useState(false);
             const [loading, setLoading] = React.useState(false);
             const [workDaysCost, setWorkDaysCost] = React.useState(0);
-
+            
             React.useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if (session) initData(session); });
                 const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if (session) initData(session); });
@@ -312,9 +309,7 @@
                 fetchRequests();
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', s.user.id).single();
                 setMyProfile(profile);
-                
                 fetchAllProfiles();
-                
                 if (userEmail === adminEmail) { fetchAllowedEmails(); }
             };
 
@@ -356,14 +351,44 @@
             };
 
             const handleUpdateProfile = async (userId, field, value) => { 
-                if (!isAdmin) return; // Jen admin může editovat
+                if (!isAdmin) return;
                 let newValue = value;
                 if (field === 'vacation_limit' || field === 'whatever_limit') {
                     newValue = parseInt(value);
                     if (isNaN(newValue)) return;
                 }
                 await supabase.from('profiles').update({ [field]: newValue }).eq('id', userId); 
-                fetchAllProfiles(); 
+                fetchAllProfiles();
+            };
+            const handleSaveClick = async (userId, field) => {
+                const inputId = `${userId}-${field}`;
+                const value = document.getElementById(inputId).value;
+                await handleUpdateProfile(userId, field, value);
+                alert("✅ Uloženo!");
+            };
+
+            // NOVÁ FUNKCE: Přidat člověka k narozeninám
+            const handleAddBirthdayPerson = async (e) => {
+                e.preventDefault();
+                if (!form.bdayName || !form.bdayDate) return;
+                
+                const randomId = crypto.randomUUID();
+                
+                const { error } = await supabase.from('profiles').insert([{ 
+                    id: randomId, 
+                    full_name: form.bdayName, 
+                    birth_date: form.bdayDate,
+                    vacation_limit: 160, 
+                    whatever_limit: 5
+                }]);
+                
+                if (error) {
+                    alert("Chyba: " + error.message);
+                } else {
+                    alert("🥳 Člověk přidán!");
+                    setForm({ ...form, bdayName: '', bdayDate: '' });
+                    fetchAllProfiles();
+                }
             };
             
             const handleAddUser = async (e) => { e.preventDefault(); if (!form.newUser) return; await supabase.from('allowed_emails').insert([{ email: form.newUser.toLowerCase().trim() }]); setForm({...form, newUser: ''}); fetchAllowedEmails(); alert("Přidáno."); };
@@ -388,26 +413,21 @@
 
             const pending = requests.filter(r => r.status === 'pending');
             
-            // --- RENDER ---
             return (
                 <div className="container" style={{maxWidth: view === 'year' ? 1200 : 1000}}>
-                    {/* HLAVIČKA A NAVIGACE */}
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10}}>
                         <h2 onClick={() => setView('dashboard')} style={{cursor:'pointer', margin:0}}>🌴 Plánovač</h2>
                         <div style={{display:'flex', gap:5, alignItems:'center'}}>
                             <button className={`btn-nav ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>🏠 Přehled</button>
-                            {/* Změna názvu tlačítka */}
                             <button className={`btn-nav ${view === 'year' ? 'active' : ''}`} onClick={() => setView('year')}>📅 Kalendář</button>
                             <button className={`btn-nav ${view === 'birthdays' ? 'active' : ''}`} onClick={() => setView('birthdays')}>🎂 Narozeniny</button>
                             <button onClick={() => supabase.auth.signOut()} className="btn-secondary" style={{marginLeft:10}}>Odhlásit</button>
                         </div>
                     </div>
 
-                    {/* POHLED 1: DASHBOARD */}
                     {view === 'dashboard' && (
                         <div>
                             <WhoIsMissing requests={requests} />
-                            
                             <div className="card" style={{background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border:'1px solid #bae6fd'}}>
                                 <h3>📊 Můj zůstatek</h3>
                                 <div style={{display:'flex', justifyContent:'space-around', alignItems:'center', flexWrap:'wrap', gap:20}}>
@@ -421,7 +441,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             {isAdmin && (
                                 <div>
                                     <div className="card" style={{borderLeft: '4px solid #f59e0b'}}>
@@ -437,16 +456,20 @@
                                         <h3>👥 Správa týmu & Limity</h3>
                                         <form onSubmit={handleAddUser} style={{display:'flex', gap:10, marginBottom:20}}><input placeholder="kolega@alza.cz" value={form.newUser} onChange={e=>setForm({...form, newUser:e.target.value})} /><button style={{width:'auto'}}>Přidat email</button></form>
                                         <div style={{overflowX:'auto'}}><table style={{width:'100%', borderCollapse:'collapse'}}>
-                                            {/* Změna v hlavičce: Odstraněna 'Akce' */}
                                             <thead><tr style={{textAlign:'left', fontSize:'0.8em', color:'#64748b'}}><th>Jméno</th><th>Dovolená (h)</th><th>Whatever (dny)</th></tr></thead>
                                             <tbody>
-                                            {/* Změna v těle: Odstraněn poslední sloupec s ID */}
-                                            {allProfiles.map(p => (<tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}}><td style={{padding:8}}><strong>{p.full_name || 'Nový'}</strong></td><td style={{padding:8}}><input type="number" defaultValue={p.vacation_limit || 160} style={{width:70, padding:5}} onBlur={(e) => handleUpdateProfile(p.id, 'vacation_limit', e.target.value)} /></td><td style={{padding:8}}><input type="number" defaultValue={p.whatever_limit || 5} style={{width:50, padding:5}} onBlur={(e) => handleUpdateProfile(p.id, 'whatever_limit', e.target.value)} /></td></tr>))}
-                                        </tbody></table></div>
+                                            {allProfiles.map(p => (
+                                                <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}}>
+                                                    <td style={{padding:8}}><strong>{p.full_name || 'Nový'}</strong></td>
+                                                    <td style={{padding:8}}><div style={{display:'flex', alignItems:'center', gap:5}}><input type="number" id={`${p.id}-vacation_limit`} defaultValue={p.vacation_limit || 160} style={{width:60, padding:5, margin:0}} /><button className="btn-save-limit" onClick={() => handleSaveClick(p.id, 'vacation_limit')} title="Uložit">💾</button></div></td>
+                                                    <td style={{padding:8}}><div style={{display:'flex', alignItems:'center', gap:5}}><input type="number" id={`${p.id}-whatever_limit`} defaultValue={p.whatever_limit || 5} style={{width:50, padding:5, margin:0}} /><button className="btn-save-limit" onClick={() => handleSaveClick(p.id, 'whatever_limit')} title="Uložit">💾</button></div></td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table></div>
                                     </div>
                                 </div>
                             )}
-
                             <div className="card">
                                 <h3>➕ Nová žádost</h3>
                                 <form onSubmit={handleSubmit} style={{display:'flex', gap:10, flexWrap:'wrap'}}>
@@ -460,14 +483,7 @@
                                     </div>
                                     <div style={{flex:1}}><label>Od:</label><input type="date" onChange={e=>setForm({...form, from:e.target.value})} required /></div>
                                     <div style={{flex:1}}><label>Do:</label><input type="date" onChange={e=>setForm({...form, to:e.target.value})} required /></div>
-                                    {workDaysCost > 0 && (
-                                        <div style={{width: '100%', marginTop: 15, padding: '15px', borderRadius: 12, background: form.type === 'whatever' ? '#fdf4ff' : '#eff6ff', border: `1px solid ${form.type === 'whatever' ? '#f0abfc' : '#bfdbfe'}`, display: 'flex', alignItems: 'center', gap: 15, boxShadow: '0 2px 5px rgba(0,0,0,0.03)'}}>
-                                            <div style={{fontSize: '1.8em', background: 'white', width: 50, height: 50, borderRadius: '50%', display:'flex', justifyContent:'center', alignItems:'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>{form.type === 'whatever' ? '🦄' : '⏱️'}</div>
-                                            <div style={{display:'flex', flexDirection:'column'}}>
-                                                {form.type === 'whatever' ? (<span style={{color: '#86198f', fontSize:'1.05em'}}>Vybraný termín obsahuje <strong>{workDaysCost / 8} Whatever Days</strong>.<br/><span style={{fontSize:'0.85em', color:'#a21caf', fontWeight:'normal'}}>(Sick Days / Home Office)</span></span>) : (<span style={{color: '#1e40af', fontSize:'1.05em'}}>Vybraný termín obsahuje <strong>{form.type === 'half' ? 0.5 : (workDaysCost / 8)} prac. dní</strong>,<br/>což je celkem <strong style={{fontSize:'1.2em', textDecoration:'underline'}}>{workDaysCost} hodin</strong>.</span>)}
-                                            </div>
-                                        </div>
-                                    )}
+                                    {workDaysCost > 0 && (<div style={{width: '100%', marginTop: 15, padding: '15px', borderRadius: 12, background: form.type === 'whatever' ? '#fdf4ff' : '#eff6ff', border: `1px solid ${form.type === 'whatever' ? '#f0abfc' : '#bfdbfe'}`, display: 'flex', alignItems: 'center', gap: 15, boxShadow: '0 2px 5px rgba(0,0,0,0.03)'}}><div style={{fontSize: '1.8em', background: 'white', width: 50, height: 50, borderRadius: '50%', display:'flex', justifyContent:'center', alignItems:'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>{form.type === 'whatever' ? '🦄' : '⏱️'}</div><div style={{display:'flex', flexDirection:'column'}}>{form.type === 'whatever' ? (<span style={{color: '#86198f', fontSize:'1.05em'}}>Vybraný termín obsahuje <strong>{workDaysCost / 8} Whatever Days</strong>.<br/><span style={{fontSize:'0.85em', color:'#a21caf', fontWeight:'normal'}}>(Sick Days / Home Office)</span></span>) : (<span style={{color: '#1e40af', fontSize:'1.05em'}}>Vybraný termín obsahuje <strong>{form.type === 'half' ? 0.5 : (workDaysCost / 8)} prac. dní</strong>,<br/>což je celkem <strong style={{fontSize:'1.2em', textDecoration:'underline'}}>{workDaysCost} hodin</strong>.</span>)}</div></div>)}
                                     <button style={{width:'auto', marginTop:10}}>Odeslat žádost</button>
                                 </form>
                             </div>
@@ -475,52 +491,61 @@
                         </div>
                     )}
 
-                    {/* POHLED 2: ROČNÍ KALENDÁŘ */}
                     {view === 'year' && <YearView requests={requests} />}
 
-                    {/* POHLED 3: NAROZENINY */}
                     {view === 'birthdays' && (
-                        <div className="card">
-                            <h3>🎂 Narozeniny & Věk</h3>
+                        <div>
                             {isAdmin && (
-                                <p style={{color:'#64748b', fontSize:'0.9em', marginBottom: 20}}>
-                                    ℹ️ Zde zadejte data narození. Systém automaticky počítá přesný věk.
-                                </p>
+                                <div className="card" style={{borderLeft: '4px solid #db2777'}}>
+                                    <h3 style={{color: '#be185d'}}>➕ Přidat osobu</h3>
+                                    <form onSubmit={handleAddBirthdayPerson} style={{display:'flex', gap:10, alignItems:'flex-end'}}>
+                                        <div style={{flex:2}}>
+                                            <label style={{fontSize:'0.9em', color:'#64748b'}}>Jméno a příjmení</label>
+                                            <input placeholder="Petr Novák" value={form.bdayName} onChange={e=>setForm({...form, bdayName:e.target.value})} required />
+                                        </div>
+                                        <div style={{flex:1}}>
+                                            <label style={{fontSize:'0.9em', color:'#64748b'}}>Datum narození</label>
+                                            <input type="date" value={form.bdayDate} onChange={e=>setForm({...form, bdayDate:e.target.value})} required />
+                                        </div>
+                                        <button style={{width:'auto', background:'#db2777', marginBottom:8}}>Přidat</button>
+                                    </form>
+                                </div>
                             )}
-                            
-                            <div style={{overflowX:'auto', marginTop: isAdmin ? 0 : 10}}>
-                                <table className="bday-table" style={{width:'100%', borderCollapse:'collapse'}}>
-                                    <thead>
-                                        <tr style={{textAlign:'left', color:'#64748b', borderBottom:'2px solid #f1f5f9'}}>
-                                            <th style={{padding:10}}>Jméno</th>
-                                            <th style={{padding:10}}>Datum narození</th>
-                                            <th style={{padding:10}}>Aktuální věk</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {allProfiles.map(p => {
-                                            const age = calculateAge(p.birth_date);
-                                            return (
-                                                <tr key={p.id}>
-                                                    <td><strong>{p.full_name || 'Neznámý'}</strong></td>
-                                                    <td>
-                                                        {isAdmin ? (
-                                                            <input type="date" defaultValue={p.birth_date} 
-                                                                style={{margin:0, padding:'6px'}} 
-                                                                onBlur={(e) => handleUpdateProfile(p.id, 'birth_date', e.target.value)} 
-                                                            />
-                                                        ) : (
-                                                            <span>{p.birth_date ? new Date(p.birth_date).toLocaleDateString('cs-CZ') : '—'}</span>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        {age ? <span className="age-tag">{age} let</span> : <span style={{color:'#cbd5e1'}}>—</span>}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+
+                            <div className="card">
+                                <h3>🎂 Narozeniny & Věk</h3>
+                                <div style={{overflowX:'auto', marginTop: 10}}>
+                                    <table className="bday-table" style={{width:'100%', borderCollapse:'collapse'}}>
+                                        <thead>
+                                            <tr style={{textAlign:'left', color:'#64748b', borderBottom:'2px solid #f1f5f9'}}>
+                                                <th style={{padding:10}}>Jméno</th>
+                                                <th style={{padding:10}}>Datum narození</th>
+                                                <th style={{padding:10}}>Aktuální věk</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allProfiles.map(p => {
+                                                const age = calculateAge(p.birth_date);
+                                                return (
+                                                    <tr key={p.id}>
+                                                        <td><strong>{p.full_name || 'Neznámý'}</strong></td>
+                                                        <td>
+                                                            {isAdmin ? (
+                                                                <div style={{display:'flex', alignItems:'center', gap:5}}>
+                                                                    <input type="date" id={`${p.id}-birth_date`} defaultValue={p.birth_date} style={{margin:0, padding:'6px'}} />
+                                                                    <button className="btn-save-limit" onClick={() => handleSaveClick(p.id, 'birth_date')} title="Uložit">💾</button>
+                                                                </div>
+                                                            ) : (
+                                                                <span>{p.birth_date ? new Date(p.birth_date).toLocaleDateString('cs-CZ') : '—'}</span>
+                                                            )}
+                                                        </td>
+                                                        <td>{age ? <span className="age-tag">{age} let</span> : <span style={{color:'#cbd5e1'}}>—</span>}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
